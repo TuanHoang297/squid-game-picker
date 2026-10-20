@@ -125,13 +125,16 @@ export function drawFullSquidCharacter(ctx, x, y, scale = 1.0, opts = {}) {
     ctx.rotate(Math.PI / 2);
   }
 
-  // CỬ ĐỘNG NHÚC NHÍCH / RUN RẨY KHI BỊ BẮT (Real-time Jitter & Shiver)
+  // CỬ ĐỘNG NHÚC NHÍCH / MẤT THĂNG BẰNG KHI BỊ BẮT
+  const isMovingGuilty = !isFallen && (isCaught || isFakeout || (isTrembling && !isRunning));
   let jitterX = 0;
   let jitterY = 0;
-  if (!isFallen && (isTrembling || isCaught || isFakeout)) {
-    // Run rẩy nhúc nhích liên tục ở tần số cao
-    jitterX = (Math.random() - 0.5) * 3.2;
-    jitterY = (Math.random() - 0.5) * 2.2;
+  if (isMovingGuilty) {
+    // Thân mình nghiêng ngả chao đảo qua lại như đang mất thăng bằng
+    const swayAngle = Math.sin(sweatTimer * 5) * 0.12;
+    ctx.rotate(swayAngle);
+    jitterX = Math.sin(sweatTimer * 10) * 2.8;
+    jitterY = Math.cos(sweatTimer * 8) * 1.6;
   }
   ctx.translate(jitterX, jitterY);
 
@@ -227,34 +230,74 @@ export function drawFullSquidCharacter(ctx, x, y, scale = 1.0, opts = {}) {
     ctx.restore();
   }
 
-  // 4. Cánh Tay (Vẽ ở lớp ngoài bên cạnh, KHÔNG ĐÈ LÊN NGỰC ÁO)
-  // Tay Trái
-  ctx.save();
-  ctx.fillStyle = pantsColor;
-  ctx.beginPath();
-  ctx.roundRect(-23, -12 - armSwing, 7.5, 23, 3.5);
-  ctx.fill();
-  ctx.fillStyle = stripeColor;
-  ctx.fillRect(-23, -12 - armSwing, 2, 21);
-  ctx.fillStyle = profile.skinTone;
-  ctx.beginPath();
-  ctx.arc(-19.2, 12 - armSwing, 3.8, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  // 4. Cánh Tay (Hoạt ảnh giơ 2 tay lên trời vẫy hoảng hốt khi nhúc nhích)
+  if (isMovingGuilty) {
+    // 🔥 HOẠT ẢNH: GIƠ 2 TAY LÊN TRỜI VẪY HOẢNG HỐT XONG BỎ XUỐNG LIÊN TỤC!
+    const armWave = Math.sin(sweatTimer * 6.5); // Dao động -1 đến 1
+    const leftArmAngle = -Math.PI * 0.72 + armWave * 0.35;  // Tay trái giơ lên trời
+    const rightArmAngle = -Math.PI * 0.28 - armWave * 0.35; // Tay phải giơ lên trời
 
-  // Tay Phải
-  ctx.save();
-  ctx.fillStyle = pantsColor;
-  ctx.beginPath();
-  ctx.roundRect(15.5, -12 + armSwing, 7.5, 23, 3.5);
-  ctx.fill();
-  ctx.fillStyle = stripeColor;
-  ctx.fillRect(21, -12 + armSwing, 2, 21);
-  ctx.fillStyle = profile.skinTone;
-  ctx.beginPath();
-  ctx.arc(19.2, 12 + armSwing, 3.8, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+    // Tay Trái giơ cao
+    ctx.save();
+    ctx.translate(-16, -10); // Khớp vai trái
+    ctx.rotate(leftArmAngle);
+    ctx.fillStyle = pantsColor;
+    ctx.beginPath();
+    ctx.roundRect(-3.7, 0, 7.5, 24, 3.5);
+    ctx.fill();
+    ctx.fillStyle = stripeColor;
+    ctx.fillRect(-3.7, 0, 2, 22);
+    // Bàn tay xòe giơ lên trời
+    ctx.fillStyle = profile.skinTone;
+    ctx.beginPath();
+    ctx.arc(0, 24, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    // Tay Phải giơ cao
+    ctx.save();
+    ctx.translate(16, -10); // Khớp vai phải
+    ctx.rotate(rightArmAngle);
+    ctx.fillStyle = pantsColor;
+    ctx.beginPath();
+    ctx.roundRect(-3.7, 0, 7.5, 24, 3.5);
+    ctx.fill();
+    ctx.fillStyle = stripeColor;
+    ctx.fillRect(1.7, 0, 2, 22);
+    // Bàn tay xòe giơ lên trời
+    ctx.fillStyle = profile.skinTone;
+    ctx.beginPath();
+    ctx.arc(0, 24, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  } else {
+    // Tay bình thường: Các bạn khác đứng im phăng phắc, tay xuôi theo thân
+    ctx.save();
+    ctx.fillStyle = pantsColor;
+    ctx.beginPath();
+    ctx.roundRect(-23, -12 - armSwing, 7.5, 23, 3.5);
+    ctx.fill();
+    ctx.fillStyle = stripeColor;
+    ctx.fillRect(-23, -12 - armSwing, 2, 21);
+    ctx.fillStyle = profile.skinTone;
+    ctx.beginPath();
+    ctx.arc(-19.2, 12 - armSwing, 3.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
+    ctx.fillStyle = pantsColor;
+    ctx.beginPath();
+    ctx.roundRect(15.5, -12 + armSwing, 7.5, 23, 3.5);
+    ctx.fill();
+    ctx.fillStyle = stripeColor;
+    ctx.fillRect(21, -12 + armSwing, 2, 21);
+    ctx.fillStyle = profile.skinTone;
+    ctx.beginPath();
+    ctx.arc(19.2, 12 + armSwing, 3.8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
 
   // 5. Thân Áo Khoác Squid Game Tracksuit Jacket
   ctx.save();
@@ -610,7 +653,7 @@ export class StudentCharacter {
       this.isTrembling = false;
     } else {
       if (this.isTrembling || this.isCaught || this.isFakeoutTarget) {
-        this.sweatTimer += 0.08;
+        this.sweatTimer += 0.12; // Cập nhật nhịp vẫy tay mượt mà liên tục 60fps
       }
     }
 
@@ -702,11 +745,9 @@ export class StudentCharacter {
     ctx.roundRect(renderX - textWidth / 2 - tagPadding, tagY - tagHeight / 2, textWidth + tagPadding * 2, tagHeight, 6);
     ctx.fill();
 
-    // Viền bảng tên sắc nét (Hồng cho Nữ, Xanh Mint cho Nam, Trắng đỏ khi bị bắn)
+    // Viền bảng tên sắc nét (Hồng cho Nữ, Xanh Mint cho Nam, Trắng khi bị bắt)
     if (this.isFallen || this.isCaught) {
       ctx.strokeStyle = '#ffffff';
-    } else if (this.isFakeoutTarget) {
-      ctx.strokeStyle = '#ffd166';
     } else {
       ctx.strokeStyle = this.profile.gender === 'female' ? '#ff477e' : '#0fd1b2';
     }
@@ -805,16 +846,17 @@ export class StudentManager {
     });
   }
 
-  removeStudent(studentId, canvasWidth, canvasHeight) {
+  removeStudent(studentId) {
+    // Chỉ loại bỏ học sinh đã bị loại khỏi danh sách, GIỮ NGUYÊN VỊ TRÍ ĐỨNG của các bạn còn lại (không tự ý xắp xếp lại vị trí)
     this.characters = this.characters.filter(c => c.id !== studentId);
-    this.rebalanceSlots(canvasWidth, canvasHeight);
   }
 
   setRunning(isRunning) {
     this.characters.forEach(char => {
       char.isRunning = isRunning;
       if (!isRunning) {
-        char.isTrembling = true;
+        // Đèn đỏ: Các bạn học sinh ngoan đứng im phăng phắc như tượng đá!
+        char.isTrembling = false;
       }
     });
   }
@@ -857,6 +899,7 @@ export class StudentManager {
     this.characters.forEach(c => {
       c.isCaught = false;
       c.isFakeoutTarget = false;
+      c.isTrembling = false;
     });
   }
 }

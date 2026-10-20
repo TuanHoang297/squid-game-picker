@@ -92,10 +92,28 @@ export class Doll {
       }
     }
 
-    // Hiệu ứng mắt phát sáng & laser quét
+    // Hiệu ứng mắt phát sáng & tia laser quét mục tiêu
     if (this.state === 'SCANNING' || this.state === 'LOCKED') {
       this.eyeGlow = Math.min(1, this.eyeGlow + 0.1);
-      this.scanSweepAngle += 0.04;
+      this.scanSweepAngle += 0.035;
+
+      if (!this.laserCurrent) {
+        this.laserCurrent = { x: this.x, y: this.groundY + 120 };
+      }
+
+      if (this.laserTarget) {
+        // Có mục tiêu: Tia laser lia thẳng và khóa chặt vào học sinh
+        const trackSpeed = this.state === 'LOCKED' ? 0.28 : 0.18;
+        this.laserCurrent.x += (this.laserTarget.x - this.laserCurrent.x) * trackSpeed;
+        this.laserCurrent.y += (this.laserTarget.y - this.laserCurrent.y) * trackSpeed;
+      } else {
+        // Quét tự nhiên qua lại khắp các hàng học sinh trên sân cát
+        const sweepSpan = Math.max(260, this.x * 0.82);
+        const targetSweepX = this.x + Math.sin(this.scanSweepAngle) * sweepSpan;
+        const targetSweepY = this.groundY + 95 + Math.sin(this.scanSweepAngle * 0.7) * 75;
+        this.laserCurrent.x += (targetSweepX - this.laserCurrent.x) * 0.12;
+        this.laserCurrent.y += (targetSweepY - this.laserCurrent.y) * 0.12;
+      }
     } else {
       this.eyeGlow = Math.max(0, this.eyeGlow - 0.1);
     }
@@ -701,81 +719,118 @@ export class Doll {
   }
 
   drawLaser(ctx, canvasWidth, canvasHeight) {
+    if (!this.laserCurrent) {
+      this.laserCurrent = { x: this.x, y: canvasHeight * 0.55 };
+    }
+
     ctx.save();
 
     const eyeLeft = { x: this.x - 14, y: this.y + 2 };
     const eyeRight = { x: this.x + 14, y: this.y + 2 };
+    const curX = this.laserCurrent.x;
+    const curY = this.laserCurrent.y;
 
-    if (this.state === 'LOCKED' && this.laserTarget) {
-      const target = this.laserTarget;
+    const isLocked = (this.state === 'LOCKED');
 
-      [eyeLeft, eyeRight].forEach(eye => {
-        ctx.strokeStyle = 'rgba(255, 0, 55, 0.9)';
-        ctx.lineWidth = 4;
-        ctx.shadowColor = '#ff0033';
-        ctx.shadowBlur = 15;
-        ctx.beginPath();
-        ctx.moveTo(eye.x, eye.y);
-        ctx.lineTo(target.x, target.y);
-        ctx.stroke();
+    // 1. Vẽ 2 tia Laser đỏ rực từ 2 mắt búp bê chĩa thẳng xuống điểm quét trên sân
+    [eyeLeft, eyeRight].forEach(eye => {
+      // Vệt sáng phát quang bên ngoài
+      ctx.strokeStyle = isLocked ? 'rgba(255, 0, 50, 0.95)' : 'rgba(255, 20, 60, 0.75)';
+      ctx.lineWidth = isLocked ? 4.5 : 3.0;
+      ctx.shadowColor = '#ff0033';
+      ctx.shadowBlur = isLocked ? 18 : 10;
+      ctx.beginPath();
+      ctx.moveTo(eye.x, eye.y);
+      ctx.lineTo(curX, curY);
+      ctx.stroke();
 
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.95)';
-        ctx.lineWidth = 1.5;
-        ctx.shadowBlur = 0;
-        ctx.beginPath();
-        ctx.moveTo(eye.x, eye.y);
-        ctx.lineTo(target.x, target.y);
-        ctx.stroke();
-      });
+      // Lõi tia laser trắng sáng ở giữa
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.lineWidth = isLocked ? 2.0 : 1.2;
+      ctx.shadowBlur = 0;
+      ctx.beginPath();
+      ctx.moveTo(eye.x, eye.y);
+      ctx.lineTo(curX, curY);
+      ctx.stroke();
+    });
 
-      // Crosshair hồng ngoại
+    // 2. Vệt sáng Laser rọi xuống mặt cát (Ground Spotlight)
+    ctx.save();
+    ctx.translate(curX, curY);
+
+    const spotGrad = ctx.createRadialGradient(0, 0, 2, 0, 0, 38);
+    if (isLocked) {
+      spotGrad.addColorStop(0, 'rgba(255, 0, 50, 0.65)');
+      spotGrad.addColorStop(0.5, 'rgba(255, 0, 50, 0.25)');
+      spotGrad.addColorStop(1, 'rgba(255, 0, 50, 0)');
+    } else {
+      spotGrad.addColorStop(0, 'rgba(255, 30, 70, 0.45)');
+      spotGrad.addColorStop(0.5, 'rgba(255, 30, 70, 0.15)');
+      spotGrad.addColorStop(1, 'rgba(255, 30, 70, 0)');
+    }
+    ctx.fillStyle = spotGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, 38, 18, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 3. Tâm ngắm Radar & Hồng ngoại nhận diện
+    if (isLocked) {
+      // ĐÃ KHÓA MỤC TIÊU: Khung hồng ngoại vuông đỏ rực có 4 góc ngắm nhấp nháy
       ctx.strokeStyle = '#ff0033';
-      ctx.lineWidth = 2.5;
+      ctx.lineWidth = 2.6;
+      ctx.shadowColor = '#ff0033';
+      ctx.shadowBlur = 12;
+
+      // Vòng tròn hồng ngoại
       ctx.beginPath();
-      ctx.arc(target.x, target.y, 28, 0, Math.PI * 2);
+      ctx.arc(0, 0, 26, 0, Math.PI * 2);
       ctx.stroke();
 
+      // Dấu chữ thập tâm ngắm
       ctx.beginPath();
-      ctx.moveTo(target.x - 35, target.y);
-      ctx.lineTo(target.x + 35, target.y);
-      ctx.moveTo(target.x, target.y - 35);
-      ctx.lineTo(target.x, target.y + 35);
+      ctx.moveTo(-34, 0); ctx.lineTo(34, 0);
+      ctx.moveTo(0, -34); ctx.lineTo(0, 34);
       ctx.stroke();
 
+      // Nhãn TARGET LOCKED
+      ctx.shadowBlur = 0;
       ctx.fillStyle = '#ff0033';
-      ctx.font = 'bold 13px Orbitron, sans-serif, Arial';
+      ctx.font = '900 12px "Orbitron", sans-serif, Arial';
       ctx.textAlign = 'center';
-      ctx.fillText('TARGET LOCKED', target.x, target.y + 44);
+      ctx.fillText('TARGET LOCKED', 0, 42);
+    } else {
+      // ĐANG QUÉT: Vòng tròn Radar rà soát chuyển động
+      ctx.strokeStyle = 'rgba(255, 30, 70, 0.85)';
+      ctx.lineWidth = 1.8;
+      ctx.shadowColor = '#ff2255';
+      ctx.shadowBlur = 8;
 
-    } else if (this.state === 'SCANNING') {
-      const sweepX = this.x + Math.sin(this.scanSweepAngle) * (canvasWidth * 0.42);
-      const sweepY = canvasHeight * 0.75;
-
-      const grad = ctx.createRadialGradient(this.x, this.y, 10, sweepX, sweepY, canvasWidth * 0.6);
-      grad.addColorStop(0, 'rgba(255, 0, 50, 0.45)');
-      grad.addColorStop(0.5, 'rgba(255, 0, 50, 0.15)');
-      grad.addColorStop(1, 'rgba(255, 0, 50, 0)');
-
-      ctx.fillStyle = grad;
       ctx.beginPath();
-      ctx.moveTo(this.x, this.y + 10);
-      ctx.lineTo(sweepX - 160, canvasHeight);
-      ctx.lineTo(sweepX + 160, canvasHeight);
-      ctx.closePath();
+      ctx.arc(0, 0, 24, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Kim radar quét xoay tròn
+      const radarAngle = this.scanSweepAngle * 4;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(Math.cos(radarAngle) * 24, Math.sin(radarAngle) * 24);
+      ctx.stroke();
+
+      // Chấm laser đỏ rực ở tâm
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(0, 0, 3.5, 0, Math.PI * 2);
       ctx.fill();
 
-      [eyeLeft, eyeRight].forEach(eye => {
-        ctx.strokeStyle = 'rgba(255, 20, 60, 0.7)';
-        ctx.lineWidth = 2;
-        ctx.shadowColor = '#ff0033';
-        ctx.shadowBlur = 10;
-        ctx.beginPath();
-        ctx.moveTo(eye.x, eye.y);
-        ctx.lineTo(sweepX, sweepY);
-        ctx.stroke();
-      });
+      // Nhãn SCANNING
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(255, 70, 90, 0.9)';
+      ctx.font = '700 10px "Orbitron", sans-serif, Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('SCANNING...', 0, 36);
     }
 
+    ctx.restore();
     ctx.restore();
   }
 }

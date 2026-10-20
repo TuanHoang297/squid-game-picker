@@ -174,14 +174,6 @@ class SquidGameApp {
     const victimData = eligibleStudents[Math.floor(Math.random() * eligibleStudents.length)];
     this.activeVictim = studentManager.getStudentById(victimData.id);
 
-    // 2. Chọn ngẫu nhiên 1 học sinh khác làm "Fakeout" nếu có trên 2 học sinh
-    let fakeoutStudent = null;
-    if (eligibleStudents.length >= 2) {
-      const candidates = eligibleStudents.filter(s => s.id !== victimData.id);
-      const fakeoutData = candidates[Math.floor(Math.random() * candidates.length)];
-      fakeoutStudent = studentManager.getStudentById(fakeoutData.id);
-    }
-
     // Bắt đầu ĐÈN XANH
     this.gameState = 'GREEN_LIGHT';
     this.btnStartGame.disabled = true;
@@ -199,65 +191,74 @@ class SquidGameApp {
     const tempo = 0.95 + Math.random() * 0.35;
     soundFX.playDollChant(tempo, () => {
       // Khi dứt tiếng hát: Chuyển sang ĐÈN ĐỎ
-      this.handleSongEnded(fakeoutStudent);
+      this.handleSongEnded();
     });
   }
 
   // Khi tiếng hát kết thúc -> Búp Bê quay ngoắt lại
-  handleSongEnded(fakeoutStudent) {
+  handleSongEnded() {
     this.gameState = 'TURNING';
     soundFX.playSuddenStop();
 
     // Búp Bê quay mặt lại với tốc độ nhanh
     this.doll.turnToFront(0.12);
 
-    // Học sinh lập tức phanh gấp, đứng im run rẩy
+    // Học sinh lập tức phanh gấp, TẤT CẢ ĐỨNG IM PHĂNG PHẮC NHƯ TƯỢNG ĐÁ!
     studentManager.setRunning(false);
     this.setStatus('🔴 ĐÈN ĐỎ - ĐỨNG IM!', 'red-light');
 
-    // Bắt đầu quét laser sau khi búp bê quay mặt xong (0.5s)
+    // Bắt đầu giai đoạn búp bê rà soát sau khi quay mặt xong (0.6s)
     setTimeout(() => {
-      this.startScanningPhase(fakeoutStudent);
+      this.startScanningPhase();
     }, 600);
   }
 
   // Giai đoạn quét laser tìm mục tiêu
-  startScanningPhase(fakeoutStudent) {
+  startScanningPhase() {
     this.gameState = 'SCANNING';
     soundFX.startHeartbeat(450);
+
+    // Búp bê quét laser tự do qua lại trên sân (chưa nhắm vào ai cả):
+    this.doll.laserTarget = null;
     soundFX.playLaserSweep();
 
-    // Nếu có kích hoạt cơ chế Troll "Đau Tim" (Fake-out)
-    if (fakeoutStudent && Math.random() < 0.65) {
-      // Tia laser rọi trước vào bạn Fakeout
-      setTimeout(() => {
+    // Lần quét phụ sau 1.0s tạo không khí căng thẳng nín thở:
+    setTimeout(() => {
+      if (this.gameState === 'SCANNING' && !this.doll.laserTarget) {
         soundFX.playLaserSweep();
-        this.doll.laserTarget = { x: fakeoutStudent.x, y: fakeoutStudent.y - 20 };
-        fakeoutStudent.isFakeoutTarget = true;
-        fakeoutStudent.isTrembling = true;
+      }
+    }, 1000);
 
-        // Còi báo động nhấp nháy suýt bắt bạn này
-        soundFX.playTargetLockAlert();
+    // 🎯 ĐÈN ĐỎ NÍN THỞ: Tất cả đứng im phăng phắc trong 1.8 giây...
+    // Sau 1.8s nín thở: BẠN HỌC SINH NÀY MẤT THĂNG BẰNG, GIƠ 2 TAY LÊN TRỜI VẪY HOẢNG HỐT (NHÚC NHÍCH TRƯỚC)!
+    setTimeout(() => {
+      if (!this.activeVictim || this.gameState !== 'SCANNING') return;
 
-        // 1.4 giây sau: Đột ngột giật tia laser sang bạn Victim thật!
-        setTimeout(() => {
-          fakeoutStudent.isFakeoutTarget = false;
-          this.lockTargetOntoVictim();
-        }, 1400);
-      }, 1000);
-    } else {
-      // Quét tự nhiên rồi khóa thẳng vào Victim sau 1.8 giây
+      // 1. HỌC SINH NHÚC NHÍCH TRƯỚC (Búp bê lúc này vẫn đang quét ở chỗ khác):
+      this.activeVictim.isTrembling = true;
+      this.activeVictim.isCaught = true; // Giơ 2 tay lên trời vẫy vẫy vi phạm luật!
+
+      // 2. Sau 600ms khi bạn này đã giơ 2 tay nhúc nhích rõ ràng:
+      // BÚP BÊ MỚI PHÁT HIỆN RA VÀ QUAY TIA LASER LIA THẲNG VÀO BẠN NÀY!
       setTimeout(() => {
-        this.lockTargetOntoVictim();
-      }, 1600);
-    }
+        if (this.gameState !== 'SCANNING') return;
+
+        // Búp bê lia tia laser từ mắt thẳng vào bạn học sinh đang giơ tay:
+        this.doll.laserTarget = { x: this.activeVictim.x, y: this.activeVictim.y - 18 };
+        soundFX.playLaserSweep();
+
+        // 3. Tia laser lia tới rọi trúng người (sau 650ms): Khóa laser đỏ rực vào mục tiêu!
+        setTimeout(() => {
+          this.lockTargetOntoVictim();
+        }, 650);
+      }, 600);
+    }, 1800);
   }
 
   // Khóa laser chính xác vào học sinh bị chọn và kích hoạt Lính Bắn Tỉa xử lý
   lockTargetOntoVictim() {
     this.gameState = 'LOCKED';
     soundFX.stopHeartbeat();
-    soundFX.playTargetLockAlert();
 
     // Búp Bê khóa tia laser đỏ rực vào mục tiêu
     this.doll.state = 'LOCKED';
@@ -269,38 +270,41 @@ class SquidGameApp {
 
     this.setStatus(`🚨 PHÁT HIỆN DI CHUYỂN: ${this.activeVictim.name.toUpperCase()}!`, 'locked');
 
-    // Sau 450ms nhắm bắn tập trung: LÍNH ÁO ĐỎ NỔ SÚNG BẮN HẠ "PẰNG!"
-    setTimeout(() => {
-      // 1. Nổ súng & vệt đạn rực lửa xé gió từ nòng súng lính tới học sinh
-      this.doll.triggerFire(this.activeVictim.x, this.activeVictim.y - 18);
-      soundFX.playGunshot();
-
-      // 2. Màn hình rung giật dữ dội vì tiếng nổ uy lực
-      this.arenaWrapper.classList.add('shake-screen');
-
-      // 3. Hiệu ứng mảnh nổ va chạm tia lửa đạn trúng đích
-      this.spawnBulletImpact(this.activeVictim.x, this.activeVictim.y - 18);
-
-      // 4. Học sinh bị bắn trúng: Ngã gục nằm bất tỉnh trên sàn cát
-      this.activeVictim.isFallen = true;
-      this.activeVictim.isCaught = false;
-      this.activeVictim.isTrembling = false;
-
-      // 5. Còi báo hiệu đã loại bỏ vang lên
-      soundFX.playEliminationBuzzer();
-      this.setStatus(`💥 ĐÃ BẮN HẠ: ${this.activeVictim.name.toUpperCase()}!`, 'eliminated');
-
-      // Tắt rung màn hình sau 500ms
+    // Chờ tiếng còi cảnh báo kêu xong hẳn rồi mới bắn:
+    soundFX.playTargetLockAlert(() => {
+      // Khi còi cảnh báo dứt: Nghỉ nhẹ 150ms tạo khoảng lặng nín thở
       setTimeout(() => {
-        this.arenaWrapper.classList.remove('shake-screen');
-        this.doll.isAiming = false;
-      }, 500);
+        // 1. TIẾNG SÚNG NỔ "PẰNG!" NGAY TỨC THÌ & LỬA ĐẦU NÒNG BẮN TỈA
+        soundFX.playGunshot();
+        this.doll.triggerFire(this.activeVictim.x, this.activeVictim.y - 18);
 
-      // 6. Sau khi bị bắn ngã gục trên sân cát 1.35 giây: BÂY GIỜ MỚI MỜI LÊN BẢNG KHẢO BÀI!
-      setTimeout(() => {
-        this.openCaughtModal();
-      }, 1350);
-    }, 450);
+        // 2. Màn hình rung giật dữ dội vì sức công phá
+        this.arenaWrapper.classList.add('shake-screen');
+
+        // 3. Viên đạn xé gió bay tới trúng đích (100ms): Lúc này học sinh mới trúng đạn và ngã gục xuống sàn cát!
+        setTimeout(() => {
+          this.spawnBulletImpact(this.activeVictim.x, this.activeVictim.y - 18);
+          this.activeVictim.isFallen = true;
+          this.activeVictim.isCaught = false;
+          this.activeVictim.isTrembling = false;
+
+          // Còi báo hiệu đã loại bỏ vang lên
+          soundFX.playEliminationBuzzer();
+          this.setStatus(`💥 ĐÃ BẮN HẠ: ${this.activeVictim.name.toUpperCase()}!`, 'eliminated');
+        }, 100);
+
+        // Tắt rung màn hình sau 500ms
+        setTimeout(() => {
+          this.arenaWrapper.classList.remove('shake-screen');
+          this.doll.isAiming = false;
+        }, 500);
+
+        // 4. Sau khi trúng đạn nằm gục trên sàn 1.35 giây: Mời lên bảng khảo bài!
+        setTimeout(() => {
+          this.openCaughtModal();
+        }, 1450);
+      }, 150);
+    });
   }
 
   // Mở cửa sổ Spotlight Khảo Bài
@@ -421,9 +425,9 @@ class SquidGameApp {
       this.activeVictim.isCaught = false;
       this.activeVictim.isFallen = false;
 
-      // Loại khỏi sân đua và tự động giãn cách các bạn còn lại
+      // Loại bạn bị bắt khỏi sân, giữ nguyên vị trí đứng của tất cả các bạn còn lại
       if (classManager.getExcludeExamined()) {
-        studentManager.removeStudent(this.activeVictim.id, this.canvas.width, this.canvas.height);
+        studentManager.removeStudent(this.activeVictim.id);
       }
     }
 
