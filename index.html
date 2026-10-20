@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Squid Game Học Đường - Đèn Xanh Đèn Đỏ Khảo Bài</title>
+  <meta name="description" content="Trò chơi random gọi tên học sinh khảo bài kịch tính, sinh động với luật chơi Đèn Xanh Đèn Đỏ Squid Game" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Plus+Jakarta+Sans:wght@400;600;700;800&family=Bebas+Neue&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./src/style.css" />
+</head>
+<body>
+  <div id="app" class="app-container">
+    <!-- Thanh Header Điều Khiển -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="squid-symbols">
+          <span class="sym circle">○</span>
+          <span class="sym triangle">△</span>
+          <span class="sym square">□</span>
+        </div>
+        <div class="logo-title">
+          <h1>SQUID GAME <span class="highlight">HỌC ĐƯỜNG</span></h1>
+          <p class="subtitle">Đấu Trường Khảo Bài Sinh Tồn</p>
+        </div>
+      </div>
+
+      <div class="header-center">
+        <div class="class-picker-wrapper">
+          <label for="classSelect">LỚP HIỆN TẠI:</label>
+          <select id="classSelect" class="styled-select"></select>
+        </div>
+        <div class="stats-badge" id="statsBadge">
+          <span class="stats-icon">👥</span>
+          <span id="statsRemainingText">Còn lại: 26 / 26 học sinh</span>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <button id="btnSoundToggle" class="btn-icon" title="Bật/Tắt Âm Thanh" aria-label="Âm thanh">
+          <span class="icon">🔊</span>
+        </button>
+        <button id="btnManageClass" class="btn-icon" title="Cài đặt & Quản lý danh sách lớp" aria-label="Cài đặt & Quản lý lớp" onclick="window.squidApp && window.squidApp.openDrawer()">
+          <span class="icon" style="pointer-events: none;">⚙️</span>
+        </button>
+        <button id="btnFullscreen" class="btn-icon" title="Toàn màn hình (F11)" aria-label="Toàn màn hình">
+          <span class="icon">⛶</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Khu vực Đấu Trường Sân Khấu (Arena) -->
+    <main class="arena-wrapper" id="arenaWrapper">
+      <!-- Banner Trạng Thái Game -->
+      <div class="status-banner" id="statusBanner">
+        <div class="banner-content waiting">
+          <span class="status-dot"></span>
+          <span id="statusText">SẴN SÀNG KHẢO BÀI</span>
+        </div>
+      </div>
+
+      <!-- Khung vẽ Canvas Đấu Trường 60 FPS -->
+      <canvas id="gameCanvas"></canvas>
+
+      <!-- Bảng điều khiển nổi dưới chân sân khấu -->
+      <div class="floating-controls">
+        <button id="btnStartGame" class="btn-action-start">
+          <span class="btn-glow"></span>
+          <span class="btn-icon">⚡</span>
+          <span class="btn-text">BẮT ĐẦU VÒNG QUAY (SPACE)</span>
+        </button>
+      </div>
+    </main>
+
+    <!-- Modal Spotlight: Học Sinh Bị Bắt Lên Khảo Bài -->
+    <div id="caughtModal" class="modal-overlay hidden">
+      <div class="modal-card caught-card">
+        <div class="caught-header">
+          <div class="alarm-siren">💥</div>
+          <h2>ĐÃ BỊ BẮN HẠ!</h2>
+          <p>Bị phát hiện nhúc nhích & đã bị bắn hạ — Mời lên bảng khảo bài!</p>
+        </div>
+
+        <div class="student-spotlight">
+          <div class="spotlight-beam"></div>
+          <div class="character-preview-box">
+            <canvas id="modalCharacterCanvas" width="240" height="150"></canvas>
+          </div>
+          <div class="modal-number-pill">
+            <span class="pill-label">SỐ BÁO DANH:</span>
+            <span class="pill-value" id="modalStudentNumber">045</span>
+          </div>
+          <div class="student-big-name" id="modalStudentName">NGUYỄN VĂN AN</div>
+          <div class="caught-status-tag">🎯 MỜI LÊN BẢNG KHẢO BÀI</div>
+        </div>
+
+        <!-- Nút Hành Động -->
+        <div class="modal-actions">
+          <button id="btnNextStudent" class="btn-action-next">
+            <span>Tiếp Tục Khảo Bạn Khác ➜</span>
+          </button>
+          <button id="btnCloseModal" class="btn-secondary-flat">
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drawer Quản Lý Lớp Học & Học Sinh -->
+    <aside id="classDrawer" class="drawer-overlay hidden">
+      <div class="drawer-panel">
+        <div class="drawer-header">
+          <h3>⚙️ CÀI ĐẶT & QUẢN LÝ LỚP</h3>
+          <button id="btnCloseDrawer" class="btn-close-drawer">✕</button>
+        </div>
+
+        <div class="drawer-body">
+          <!-- Chọn & Tạo Lớp -->
+          <div class="drawer-section">
+            <label class="section-title">Chọn hoặc Thêm Lớp Mới</label>
+            <div class="class-crud-row">
+              <select id="drawerClassSelect" class="styled-select"></select>
+              <button id="btnNewClass" class="btn-small-primary">+ Thêm Lớp</button>
+              <button id="btnDeleteClass" class="btn-small-danger" title="Xóa lớp này">🗑</button>
+            </div>
+            <!-- Khung Nhập Tên Lớp Mới Trực Tiếp (Không cần prompt) -->
+            <div id="newClassBox" class="new-class-box hidden">
+              <input type="text" id="txtNewClassName" class="styled-input" placeholder="Nhập tên lớp mới (vd: 10A1, 11B2)..." />
+              <div class="new-class-actions">
+                <button id="btnConfirmAddClass" class="btn-small-primary">✓ Lưu Lớp</button>
+                <button id="btnCancelAddClass" class="btn-small-danger">Hủy</button>
+              </div>
+            </div>
+            <div class="class-backup-row">
+              <button id="btnExportData" class="btn-backup" title="Tải file JSON sao lưu toàn bộ các lớp">💾 Sao Lưu Ra File</button>
+              <label class="btn-backup file-upload-btn" title="Khôi phục danh sách lớp từ file sao lưu">
+                📂 Khôi Phục File
+                <input type="file" id="importFileInput" accept=".json" style="display:none;" />
+              </label>
+            </div>
+            <!-- Tự động thêm lớp bằng file Excel (.xlsx) -->
+            <div class="excel-import-box">
+              <label class="btn-excel-import" title="Tải file Excel (.xlsx) để tự động thêm tất cả các lớp & học sinh">
+                <span class="excel-icon">📊</span>
+                <span class="excel-text">
+                  <strong>Tự Động Thêm Lớp Từ Excel (.xlsx)</strong>
+                  <small>Đọc tự động tất cả các sheet lớp học & danh sách tên</small>
+                </span>
+                <input type="file" id="importExcelInput" accept=".xlsx, .xls" style="display:none;" />
+              </label>
+            </div>
+          </div>
+
+          <!-- Tùy Chọn Khảo Bài -->
+          <div class="drawer-section">
+            <label class="section-title">Cài Đặt Khảo Bài</label>
+            <label class="toggle-control">
+              <input type="checkbox" id="chkExcludeExamined" checked />
+              <span class="toggle-slider"></span>
+              <span class="toggle-text">Loại trừ bạn đã khảo (không gọi lại)</span>
+            </label>
+            <button id="btnResetCurrentRound" class="btn-secondary-block mt-2">
+              🔄 Đặt lại trạng thái: Chưa ai khảo bài
+            </button>
+          </div>
+
+          <!-- Danh Sách Học Sinh -->
+          <div class="drawer-section">
+            <div class="section-header-flex">
+              <label class="section-title">Danh Sách Học Sinh (<span id="drawerStudentCount">0</span> bạn)</label>
+              <button id="btnOpenPasteBox" class="btn-link">📝 Nhập Hàng Loạt</button>
+            </div>
+
+            <!-- Khung Dán Danh Sách Nhanh -->
+            <div id="pasteBoxContainer" class="paste-box-container hidden">
+              <p class="help-text">Dán danh sách từ Excel/Word (mỗi dòng 1 bạn hoặc cách nhau bằng dấu phẩy):</p>
+              <textarea id="txtPasteStudents" rows="6" placeholder="Nguyễn Văn An&#10;Trần Thị Bích&#10;Lê Hoàng Cường..."></textarea>
+              <div class="paste-actions">
+                <button id="btnSavePastedStudents" class="btn-primary-small">Lưu Danh Sách</button>
+                <button id="btnCancelPaste" class="btn-secondary-small">Hủy</button>
+              </div>
+            </div>
+
+            <!-- Bảng Danh Sách Học Sinh & Điểm Số -->
+            <div class="students-table-wrapper">
+              <table class="students-table">
+                <thead>
+                  <tr>
+                    <th>Số</th>
+                    <th>Họ & Tên</th>
+                    <th>Trạng Thái</th>
+                  </tr>
+                </thead>
+                <tbody id="studentTableBody">
+                  <!-- Render động -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <script type="module" src="./src/main.js"></script>
+</body>
+</html>
