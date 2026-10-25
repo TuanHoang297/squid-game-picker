@@ -129,6 +129,7 @@ class SoundFX {
 
   // =========================================================
   // 2. TIẾNG CÒI CẢNH BÁO (Hỗ trợ callback onEnded để đợi kêu xong mới bắn)
+  // Đã hạ âm lượng xuống 0.35 (35%) để êm tai, không bị chói giật mình
   // =========================================================
   playTargetLockAlert(onEnded = null) {
     if (this.muted) {
@@ -139,7 +140,7 @@ class SoundFX {
 
     try {
       const alert = new Audio(this.alertAudioSrc);
-      alert.volume = 0.95;
+      alert.volume = 0.35; // Hạ âm lượng từ 0.95 xuống 0.35 vừa vặn, dễ chịu
       this.currentAlert = alert;
 
       let called = false;
@@ -203,7 +204,7 @@ class SoundFX {
         osc.frequency.setValueAtTime(800 + (i % 2 === 0 ? 300 : 0), time);
 
         gain.gain.setValueAtTime(0.001, time);
-        gain.gain.linearRampToValueAtTime(0.3, time + 0.01);
+        gain.gain.linearRampToValueAtTime(0.1, time + 0.01); // Hạ từ 0.3 xuống 0.1 cho êm
         gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
 
         osc.connect(gain);
